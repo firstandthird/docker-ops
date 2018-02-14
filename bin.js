@@ -12,7 +12,7 @@ const argv = require('yargs')
   cpuThreshold: {
     alias: 'c',
     describe: 'warn if % CPU Usage is above this level for too long ',
-    default: 10,
+    default: 90,
     type: 'number'
   },
   intervalsAllowed: {
