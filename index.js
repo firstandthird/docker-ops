@@ -16,13 +16,13 @@ const logContainer = (container, value, options) => {
   const containerInfo = containers[container.id];
   if (value < options.cpuThreshold) {
     if (containerInfo.intervals > options.intervalsAllowed) {
-      log(['docker-ops', 'warning'], `OKAY: Container ${container.name} CPU is now at ${value}%`);
+      log(['docker-ops', 'okay'], `Container ${container.name} CPU is now at ${value}%`);
     }
     containerInfo.intervals = 0;
   } else {
     containerInfo.intervals ++;
     if (containerInfo.intervals > options.intervalsAllowed) {
-      log(['docker-ops', 'warning'], `WARNING: Container ${container.name} has been at ${value}% CPU Usage for ${containerInfo.intervals * options.interval} seconds`);
+      log(['docker-ops', 'warning'], `Container ${container.name} has been at ${value}% CPU Usage for ${containerInfo.intervals * options.interval} seconds`);
     }
   }
 };
