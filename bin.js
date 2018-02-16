@@ -28,5 +28,4 @@ const argv = require('yargs')
   }
 }).argv;
 
-console.log(`Interval length is ${argv.interval}, threshold is ${argv.cpuThreshold}% and containers can be above threshold for ${argv.intervalsAllowed} intervals`);
 main.start(argv);

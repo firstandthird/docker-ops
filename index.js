@@ -1,21 +1,28 @@
 const Docker = require('dockerode');
+const Logr = require('logr');
+const logrFlat = require('logr-flat');
 
 const wait = (seconds) => new Promise(resolve => setTimeout(resolve, seconds * 1000));
 
+let log = undefined; // use Logr for logging after it is configured
 const containers = {};
 
-// log when we go over threshold or when we go back under threshold:
-const logThresholdExceeded = (container, value, options) => {
+const logContainer = (container, value, options) => {
+  // verbose mode logs usage stats on every interval:
+  if (options.verbose) {
+    return log(['docker-ops', 'info'], `Container ${container.name} is using ${value}% of its CPU capacity`);
+  }
+  // outside of verbose mode, only log if a container has exceeded its threshold for x intervals:
   const containerInfo = containers[container.id];
   if (value < options.cpuThreshold) {
     if (containerInfo.intervals > options.intervalsAllowed) {
-      console.log(`OKAY: Container ${container.name} CPU is now at ${value}%`);
+      log(['docker-ops', 'warning'], `OKAY: Container ${container.name} CPU is now at ${value}%`);
     }
     containerInfo.intervals = 0;
   } else {
     containerInfo.intervals ++;
     if (containerInfo.intervals > options.intervalsAllowed) {
-      console.log(`WARNING: Container ${container.name} has been at ${value}% CPU Usage for ${containerInfo.intervals * options.interval} seconds`);
+      log(['docker-ops', 'warning'], `WARNING: Container ${container.name} has been at ${value}% CPU Usage for ${containerInfo.intervals * options.interval} seconds`);
     }
   }
 };
@@ -27,13 +34,7 @@ const printStats = (container, stats, options) => {
   const systemDelta = cpuStats.system_cpu_usage - containers[container.id].previousSystem;
   const cpuCount = cpuStats.cpu_usage.percpu_usage.length;
   const cpuPercent = ((cpuDelta / systemDelta) * cpuCount * 100.0).toFixed(0);
-  // now log as appropriate.  verbose mode just always logs usage stats:
-  if (options.verbose) {
-    console.log(`Container ${container.name} is using ${cpuPercent}% of its CPU capacity`);
-  } else {
-    // outside of verbose mode, only log if a container has exceeded its threshold for x intervals:
-    logThresholdExceeded(container, cpuPercent, options);
-  }
+  logContainer(container, cpuPercent, options);
   // update the previous cpu values:
   containers[container.id].previousCPU = cpuStats.cpu_usage.total_usage;
   containers[container.id].previousSystem = cpuStats.system_cpu_usage;
@@ -44,7 +45,7 @@ const runInterval = async(docker, options) => {
   // list all running containers:
   const containerDescriptions = await docker.listContainers({ filters: { status: ['running'] } });
   // get and print stats for each running container:
-  // todo: should this be a Promise.all()?
+  // todo: this can be made faster with Promise.all():
   containerDescriptions.forEach(async containerDescription => {
     const container = docker.getContainer(containerDescription.Id);
     container.name = containerDescription.Names.length > 0 ? containerDescription.Names[0] : 'unknown';
@@ -65,6 +66,15 @@ const runInterval = async(docker, options) => {
 };
 
 module.exports.start = (options) => {
+  log = Logr.createLogger({
+    type: 'flat',
+    reporters: {
+      flat: {
+        reporter: logrFlat
+      }
+    }
+  });
+  log(['docker-ops', 'info'], `Interval length is ${options.interval}, threshold is ${options.cpuThreshold}% and containers can be above threshold for ${options.intervalsAllowed} intervals`);
   // only need to create the dockerode object once:
   const docker = new Docker();
   runInterval(docker, options);

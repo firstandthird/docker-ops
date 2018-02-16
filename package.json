@@ -23,6 +23,8 @@
   },
   "dependencies": {
     "dockerode": "^2.5.0",
+    "logr": "^2.7.0",
+    "logr-flat": "^3.1.0",
     "yargs": "^11.0.0"
   }
 }
