@@ -7,7 +7,10 @@ const wait = (seconds) => new Promise(resolve => setTimeout(resolve, seconds * 1
 const log = Logr.createLogger({
   reporters: {
     flat: {
-      reporter: logrFlat
+      reporter: logrFlat,
+      options: {
+        timestamp: false
+      }
     }
   }
 });
