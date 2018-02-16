@@ -26,6 +26,8 @@ const argv = require('yargs')
     default: false,
     type: 'boolean'
   }
-}).argv;
+})
+.env()
+.argv;
 
 main.start(argv);
