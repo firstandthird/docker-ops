@@ -1,6 +1,7 @@
 const Docker = require('dockerode');
 const Logr = require('logr');
 const logrFlat = require('logr-flat');
+const os = require('os');
 
 const wait = (seconds) => new Promise(resolve => setTimeout(resolve, seconds * 1000));
 
@@ -17,20 +18,20 @@ const containers = {};
 const logContainer = (container, value, options) => {
   // verbose mode logs usage stats on every interval:
   if (options.verbose) {
-    log(['cpu', 'info'], `Container ${container.name} is using ${value}% of its CPU capacity`);
+    log(['cpu', 'info'], `Container ${container.name} is using ${value}% of its CPU capacity [${os.hostname()}]`);
   }
   // we always notify if a container has exceeded its threshold for too many intervals
   // or when it goes back below that threshold
   const containerInfo = containers[container.id];
   if (value < options.cpuThreshold) {
     if (containerInfo.intervals > options.intervalsAllowed) {
-      log(['cpu', 'restored', 'threshold'], `Container ${container.name} CPU is now at ${value}%`);
+      log(['cpu', 'restored', 'threshold'], `Container ${container.name} CPU is now at ${value}% [${os.hostname()}]`);
     }
     containerInfo.intervals = 0;
   } else {
     containerInfo.intervals ++;
     if (containerInfo.intervals > options.intervalsAllowed) {
-      log(['cpu', 'warning', 'threshold'], `Container ${container.name} has been at ${value}% CPU Usage for ${containerInfo.intervals * options.interval} seconds`);
+      log(['cpu', 'warning', 'threshold'], `Container ${container.name} has been at ${value}% CPU Usage for ${containerInfo.intervals * options.interval} seconds [${os.hostname()}]`);
     }
   }
 };
