@@ -40,8 +40,12 @@ const logContainer = (container, value, options) => {
 };
 
 const printStats = (container, stats, options) => {
-  // get cpu usage stats:
+  // try to get cpu usage stats:
   const cpuStats = stats.cpu_stats;
+  // these may not be available at first launch:
+  if (!cpuStats) {
+    return;
+  }
   const cpuDelta = cpuStats.cpu_usage.total_usage - containers[container.id].previousCPU;
   const systemDelta = cpuStats.system_cpu_usage - containers[container.id].previousSystem;
   if (!cpuStats.cpu_usage.percpu_usage) {
@@ -55,6 +59,22 @@ const printStats = (container, stats, options) => {
   containers[container.id].previousSystem = cpuStats.system_cpu_usage;
 };
 
+// usually the first name on the list is the best one, but not always:
+const getName = (namesList, id) => {
+  // if no Names list provided, fall back on this:
+  if (!namesList || namesList.length === 0) {
+    return `${id} (name unknown)`;
+  }
+  // try to find a simple name with only one '/'
+  for (let i = 0; i < namesList.length; i++) {
+    if (namesList[i].split('/').length === 1) {
+      return namesList[i];
+    }
+  }
+  // if we couldn't find a suitable name, go ahead and return the first name on the list:
+  return namesList[0];
+};
+
 // the main processing loop:
 const runInterval = async(docker, options) => {
   try {
@@ -64,7 +84,7 @@ const runInterval = async(docker, options) => {
     // todo: should this be a Promise.all()?
     containerDescriptions.forEach(async containerDescription => {
       const container = docker.getContainer(containerDescription.Id);
-      container.name = (containerDescription.Names && containerDescription.Names.length > 0) ? containerDescription.Names[0] : `${containerDescription.Id} (name unknown)`;
+      container.name = getName(containerDescription.Names, containerDescription.Id);
       const stats = await container.stats({ stream: false });
       // initialize some data for the container the first time we see it:
       if (!containers[container.id]) {
