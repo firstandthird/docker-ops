@@ -1,7 +1,7 @@
 const Docker = require('dockerode');
 const Logr = require('logr');
 const logrFlat = require('logr-flat');
-
+const hostname = require('os').hostname();
 const wait = (seconds) => new Promise(resolve => setTimeout(resolve, seconds * 1000));
 
 const log = Logr.createLogger({
@@ -9,6 +9,7 @@ const log = Logr.createLogger({
     flat: {
       reporter: logrFlat,
       options: {
+        appColor: true,
         timestamp: false
       }
     }
@@ -20,20 +21,20 @@ const containers = {};
 const logContainer = (container, value, options) => {
   // verbose mode logs usage stats on every interval:
   if (options.verbose) {
-    log(['cpu', 'info'], `Container ${container.name} is using ${value}% of its CPU capacity`);
+    log([container.name, hostname, 'cpu', 'info'], `Using ${value}% CPU capacity`);
   }
   // we always notify if a container has exceeded its threshold for too many intervals
   // or when it goes back below that threshold
   const containerInfo = containers[container.id];
   if (value < options.cpuThreshold) {
     if (containerInfo.intervals > options.intervalsAllowed) {
-      log(['cpu', 'restored', 'threshold'], `Container ${container.name} CPU is now at ${value}%`);
+      log([container.name, hostname, 'cpu', 'restored', 'threshold'], `CPU has dropped below critical threshold and is now at ${value}%`);
     }
     containerInfo.intervals = 0;
   } else {
     containerInfo.intervals ++;
     if (containerInfo.intervals > options.intervalsAllowed) {
-      log(['cpu', 'warning', 'threshold'], `Container ${container.name} has been at ${value}% CPU Usage for ${containerInfo.intervals * options.interval} seconds`);
+      log([container.name, hostname, 'cpu', 'warning', 'threshold'], `CPU usage has been at ${value}% for ${containerInfo.intervals * options.interval} seconds`);
     }
   }
 };
@@ -85,7 +86,7 @@ const runInterval = async(docker, options) => {
   }
 };
 module.exports.start = (options) => {
-  log(['docker-ops', 'info'], `Interval length is ${options.interval}, threshold is ${options.cpuThreshold}% and containers can be above threshold for ${options.intervalsAllowed} intervals`);
+  log([hostname, 'docker-ops', 'info'], `Interval length is ${options.interval}, threshold is ${options.cpuThreshold}% and containers can be above threshold for ${options.intervalsAllowed} intervals`);
   // only need to create the dockerode object once:
   const docker = new Docker();
   runInterval(docker, options);
