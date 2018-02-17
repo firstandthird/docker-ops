@@ -27,7 +27,7 @@ const logContainer = (container, value, options) => {
   const containerInfo = containers[container.id];
   if (value < options.cpuThreshold) {
     if (containerInfo.intervals > options.intervalsAllowed) {
-      log([container.name, hostname, 'cpu', 'restored', 'threshold'], `CPU is now at ${value}%`);
+      log([container.name, hostname, 'cpu', 'restored', 'threshold'], `CPU has dropped below critical threshold and is now at ${value}%`);
     }
     containerInfo.intervals = 0;
   } else {
