@@ -1,0 +1,10 @@
+#!/bin/bash
+
+docker build -t docker-ops .
+docker run \
+  --rm \
+  --name docker-ops \
+  --env INTERVAL=1 \
+  --env VERBOSE=true \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  docker-ops
