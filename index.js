@@ -65,6 +65,9 @@ const runInterval = async(docker, options) => {
     containerDescriptions.forEach(async containerDescription => {
       const container = docker.getContainer(containerDescription.Id);
       container.name = (containerDescription.Names && containerDescription.Names.length > 0) ? containerDescription.Names[0] : `${containerDescription.Id} (name unknown)`;
+      if (container.name.startsWith('/')) {
+        container.name = container.name.replace('/', '');
+      }
       const stats = await container.stats({ stream: false });
       // initialize some data for the container the first time we see it:
       if (!containers[container.id]) {
