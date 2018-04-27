@@ -18,7 +18,7 @@ const log = Logr.createLogger({
 
 const containers = {};
 
-const logContainer = (container, value, options) => {
+const logContainerCpu = (container, value, options) => {
   // verbose mode logs usage stats on every interval:
   if (options.verbose) {
     log([container.name, hostname, 'cpu', 'info'], `Using ${value}% CPU capacity`);
@@ -39,6 +39,27 @@ const logContainer = (container, value, options) => {
   }
 };
 
+const logContainerMemory = (container, value, options) => {
+  // verbose mode logs usage stats on every interval:
+  if (options.verbose) {
+    log([container.name, hostname, 'memory', 'info'], `Using ${value}% memory capacity`);
+  }
+  // we always notify if a container has exceeded its threshold for too many intervals
+  // or when it goes back below that threshold
+  const containerInfo = containers[container.id];
+  if (value < options.memoryThreshold) {
+    if (containerInfo.intervals > options.intervalsAllowed) {
+      log([container.name, hostname, 'memory', 'restored', 'threshold'], `Memory has dropped below critical threshold and is now at ${value}%`);
+    }
+    containerInfo.intervals = 0;
+  } else {
+    containerInfo.intervals ++;
+    if (containerInfo.intervals > options.intervalsAllowed) {
+      log([container.name, hostname, 'memory', 'warning', 'threshold'], `Memory usage has been at ${value}% for ${containerInfo.intervals * options.interval} seconds`);
+    }
+  }
+};
+
 const printStats = (container, stats, options) => {
   // get cpu usage stats:
   const cpuStats = stats.cpu_stats;
@@ -49,7 +70,11 @@ const printStats = (container, stats, options) => {
   }
   const cpuCount = cpuStats.cpu_usage.percpu_usage.length;
   const cpuPercent = ((cpuDelta / systemDelta) * cpuCount * 100.0).toFixed(0);
-  logContainer(container, cpuPercent, options);
+  logContainerCpu(container, cpuPercent, options);
+  // get memory usage stats:
+  const memStats = stats.memory_stats;
+  const cpuSystem = ((memStats.usage / memStats.max_usage) * 100.0).toFixed(0);
+  logContainerMemory(container, cpuSystem, options);
   // update the previous cpu values:
   containers[container.id].previousCPU = cpuStats.cpu_usage.total_usage;
   containers[container.id].previousSystem = cpuStats.system_cpu_usage;
