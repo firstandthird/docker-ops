@@ -69,11 +69,11 @@ const printStats = (container, stats, options) => {
     return log(['cpu', 'info'], `cpu usage information was not available for ${container.name}`);
   }
   const cpuCount = cpuStats.cpu_usage.percpu_usage.length;
-  const cpuPercent = ((cpuDelta / systemDelta) * cpuCount * 100.0).toFixed(0);
+  const cpuPercent = ((cpuDelta / systemDelta) * cpuCount * 100.0).toFixed(2);
   logContainerCpu(container, cpuPercent, options);
   // get memory usage stats:
   const memStats = stats.memory_stats;
-  const cpuSystem = ((memStats.usage / memStats.max_usage) * 100.0).toFixed(0);
+  const cpuSystem = ((memStats.usage / memStats.limit) * 100.0).toFixed(2);
   logContainerMemory(container, cpuSystem, options);
   // update the previous cpu values:
   containers[container.id].previousCPU = cpuStats.cpu_usage.total_usage;
