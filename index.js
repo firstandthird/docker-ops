@@ -51,7 +51,8 @@ const printStats = (container, stats, options) => {
     return log(['cpu', 'info'], `cpu usage information was not available for ${container.name}`);
   }
   const cpuCount = cpuStats.cpu_usage.percpu_usage.length;
-  const cpuPercent = ((cpuDelta / systemDelta) * cpuCount * 100.0).toFixed(0);
+  // if systemDelta or cpuDelta are 0, cpuPercent is just 0. Otherwise calculate the usage
+  const cpuPercent = systemDelta === 0 || cpuDelta === 0 ? 0 : ((cpuDelta / systemDelta) * cpuCount * 100.0).toFixed(0);
   logContainer(container, cpuPercent, options);
   // update the previous cpu values:
   containers[container.id].previousCPU = cpuStats.cpu_usage.total_usage;
