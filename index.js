@@ -81,6 +81,9 @@ const runInterval = async(docker, options) => {
           intervals: 0
         };
       }
+      if (!stats) {
+        return log(['docker-ops', 'warning'], `Failed to get stats for container ${container.name}`);
+      }
       printStats(container, stats, options);
     });
   } catch (e) {
