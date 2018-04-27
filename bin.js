@@ -29,6 +29,12 @@ const argv = require('yargs')
       default: 90,
       type: 'number'
     },
+    memThreshold: {
+      alias: 'm',
+      describe: 'warn if % Memory Usage is above this level for too long ',
+      default: 90,
+      type: 'number'
+    },
     intervalsAllowed: {
       describe: 'number of logging intervals to allow before throwing a warning ',
       default: 1,
