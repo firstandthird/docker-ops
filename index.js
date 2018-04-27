@@ -47,7 +47,7 @@ const logContainerMemory = (container, value, options) => {
   // we always notify if a container has exceeded its threshold for too many intervals
   // or when it goes back below that threshold
   const containerInfo = containers[container.id];
-  if (value < options.memoryThreshold) {
+  if (value < options.memThreshold) {
     if (containerInfo.intervals > options.intervalsAllowed) {
       log([container.name, hostname, 'memory', 'restored', 'threshold'], `Memory has dropped below critical threshold and is now at ${value}%`);
     }
