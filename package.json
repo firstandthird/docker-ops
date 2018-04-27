@@ -1,6 +1,6 @@
 {
   "name": "docker-ops",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "monitor memory, cpu, disk and other stats for a given docker instance",
   "main": "index.js",
   "directories": {},
