@@ -10,7 +10,10 @@ const log = Logr.createLogger({
       reporter: logrFlat,
       options: {
         appColor: true,
-        timestamp: false
+        timestamp: false,
+        tagColors: {
+          restored: 'green'
+        }
       }
     }
   }
