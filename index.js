@@ -1,20 +1,24 @@
 const Docker = require('dockerode');
 const Logr = require('logr');
 const logrFlat = require('logr-flat');
+const logrSlack = require('logr-slack');
 const hostname = require('os').hostname();
 const wait = (seconds) => new Promise(resolve => setTimeout(resolve, seconds * 1000));
 
-const log = Logr.createLogger({
-  reporters: {
-    flat: {
-      reporter: logrFlat,
-      options: {
-        appColor: true,
-        timestamp: false
+let log;
+
+const reporters = {
+  flat: {
+    reporter: logrFlat,
+    options: {
+      appColor: true,
+      timestamp: false,
+      tagColors: {
+        restored: 'green'
       }
     }
   }
-});
+};
 
 const containers = {};
 
@@ -70,13 +74,14 @@ const printStats = (container, stats, options) => {
     return log(['cpu', 'info'], `cpu usage information was not available for ${container.name}`);
   }
   const cpuCount = cpuStats.cpu_usage.percpu_usage.length;
-  const cpuPercent = ((cpuDelta / systemDelta) * cpuCount * 100.0).toFixed(2);
+  // if systemDelta or cpuDelta are 0, cpuPercent is just 0. Otherwise calculate the usage
+  const cpuPercent = systemDelta === 0 || cpuDelta === 0 ? 0 : ((cpuDelta / systemDelta) * cpuCount * 100.0).toFixed(2);
   logContainerCpu(container, cpuPercent, options);
   // get memory usage stats:
   const memStats = stats.memory_stats;
-  const cpuSystem = ((memStats.usage / memStats.limit) * 100.0).toFixed(2);
-  logContainerMemory(container, cpuSystem, options);
-  // update the previous cpu values:
+  const memPercent = ((memStats.usage / memStats.limit) * 100.0).toFixed(2);
+  logContainerMemory(container, memPercent, options);
+  // update the previous cpu/mem values:
   containers[container.id].previousCPU = cpuStats.cpu_usage.total_usage;
   containers[container.id].previousSystem = cpuStats.system_cpu_usage;
 };
@@ -91,6 +96,9 @@ const runInterval = async(docker, options) => {
     containerDescriptions.forEach(async containerDescription => {
       const container = docker.getContainer(containerDescription.Id);
       container.name = (containerDescription.Names && containerDescription.Names.length > 0) ? containerDescription.Names[0] : `${containerDescription.Id} (name unknown)`;
+      if (container.name.startsWith('/')) {
+        container.name = container.name.replace('/', '');
+      }
       const stats = await container.stats({ stream: false });
       // initialize some data for the container the first time we see it:
       if (!containers[container.id]) {
@@ -100,6 +108,9 @@ const runInterval = async(docker, options) => {
           cpuIntervals: 0,
           memIntervals: 0
         };
+      }
+      if (!stats) {
+        return log(['docker-ops', 'warning'], `Failed to get stats for container ${container.name}`);
       }
       printStats(container, stats, options);
     });
@@ -113,6 +124,25 @@ const runInterval = async(docker, options) => {
   }
 };
 module.exports.start = (options) => {
+  if (options.slackHook) {
+    reporters.slack = {
+      reporter: logrSlack,
+      options: {
+        slackHook: options.slackHook,
+        filter: ['warning', 'restored'],
+        username: options.name ? `Ops - ${options.name}` : 'Ops',
+        iconEmoji: options.emoji,
+        hideTags: true,
+        tagColors: {
+          warning: 'warning',
+          restored: 'good'
+        },
+        throttle: options.slackReportRate * 1000,
+        throttleBasedOnTags: true,
+      }
+    };
+  }
+  log = Logr.createLogger({ reporters });
   log([hostname, 'docker-ops', 'info'], `Interval length: ${options.interval}, CPU threshold: ${options.cpuThreshold}% Memory threshold: ${options.memThreshold}%. Containers can be above threshold for ${options.intervalsAllowed} intervals`);
   // only need to create the dockerode object once:
   const docker = new Docker();
