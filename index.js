@@ -1,23 +1,24 @@
 const Docker = require('dockerode');
 const Logr = require('logr');
 const logrFlat = require('logr-flat');
+const logrSlack = require('logr-slack');
 const hostname = require('os').hostname();
 const wait = (seconds) => new Promise(resolve => setTimeout(resolve, seconds * 1000));
 
-const log = Logr.createLogger({
-  reporters: {
-    flat: {
-      reporter: logrFlat,
-      options: {
-        appColor: true,
-        timestamp: false,
-        tagColors: {
-          restored: 'green'
-        }
+let log;
+
+const reporters = {
+  flat: {
+    reporter: logrFlat,
+    options: {
+      appColor: true,
+      timestamp: false,
+      tagColors: {
+        restored: 'green'
       }
     }
   }
-});
+};
 
 const containers = {};
 
@@ -96,6 +97,25 @@ const runInterval = async(docker, options) => {
   }
 };
 module.exports.start = (options) => {
+  if (options.slackHook) {
+    reporters.slack = {
+      reporter: logrSlack,
+      options: {
+        slackHook: options.slackHook,
+        filter: ['warning', 'restored'],
+        username: options.name ? `Ops - ${options.name}` : 'Ops',
+        iconEmoji: options.emoji,
+        hideTags: true,
+        tagColors: {
+          warning: 'warning',
+          restored: 'good'
+        },
+        throttle: options.slackReportRate * 1000,
+        throttleBasedOnTags: true,
+      }
+    };
+  }
+  log = Logr.createLogger({ reporters });
   log([hostname, 'docker-ops', 'info'], `Interval length is ${options.interval}, threshold is ${options.cpuThreshold}% and containers can be above threshold for ${options.intervalsAllowed} intervals`);
   // only need to create the dockerode object once:
   const docker = new Docker();
