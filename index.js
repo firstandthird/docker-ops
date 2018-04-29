@@ -64,7 +64,6 @@ const logContainerMemory = (container, value, options) => {
   }
 };
 
-
 const printStats = (container, stats, options) => {
   // get cpu usage stats:
   const cpuStats = stats.cpu_stats;
@@ -98,6 +97,11 @@ const runInterval = async(docker, options) => {
       container.name = (containerDescription.Names && containerDescription.Names.length > 0) ? containerDescription.Names[0] : `${containerDescription.Id} (name unknown)`;
       if (container.name.startsWith('/')) {
         container.name = container.name.replace('/', '');
+      }
+      if (options.exclude) {
+        if (RegExp(options.exclude).test(container.name)) {
+          return;
+        }
       }
       const stats = await container.stats({ stream: false });
       // initialize some data for the container the first time we see it:

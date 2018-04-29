@@ -45,6 +45,12 @@ const argv = require('yargs')
       describe: 'will log CPU stats at every interval regardless of whether it is above threshold',
       default: false,
       type: 'boolean'
+    },
+    exclude: {
+      alias: 'e',
+      describe: 'ignore containers that match this RegEx',
+      default: false,
+      type: 'string'
     }
   })
   .env()
