@@ -48,7 +48,7 @@ const argv = require('yargs')
     },
     exclude: {
       alias: 'e',
-      describe: 'ignore containerst that match this RegEx',
+      describe: 'ignore containers that match this RegEx',
       default: false,
       type: 'string'
     }
