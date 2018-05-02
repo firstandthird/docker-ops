@@ -6,6 +6,27 @@ const hostname = require('os').hostname();
 const wait = (seconds) => new Promise(resolve => setTimeout(resolve, seconds * 1000));
 
 let log;
+let started = false;
+
+const addValue = (value, previousValues) => {
+  // remove outdated values:
+  const now = new Date().getTime();
+  const oneMinuteAgo = now - 60000;
+  previousValues[now] = value;
+  Object.keys(previousValues).forEach(timestamp => {
+    if (timestamp < oneMinuteAgo) {
+      delete previousValues[timestamp];
+    }
+  });
+};
+
+const getAverage = (previousValues) => {
+  let valueSum = 0;
+  Object.keys(previousValues).forEach(timestamp => {
+    valueSum += Number(previousValues[timestamp]);
+  });
+  return (valueSum / Object.keys(previousValues).length).toFixed(2);
+};
 
 const reporters = {
   flat: {
@@ -64,7 +85,7 @@ const logContainerMemory = (container, value, options) => {
   }
 };
 
-const printStats = (container, stats, options) => {
+const updateStats = (container, stats, options) => {
   // get cpu usage stats:
   const cpuStats = stats.cpu_stats;
   const cpuDelta = cpuStats.cpu_usage.total_usage - containers[container.id].previousCPU;
@@ -75,18 +96,27 @@ const printStats = (container, stats, options) => {
   const cpuCount = cpuStats.cpu_usage.percpu_usage.length;
   // if systemDelta or cpuDelta are 0, cpuPercent is just 0. Otherwise calculate the usage
   const cpuPercent = systemDelta === 0 || cpuDelta === 0 ? 0 : ((cpuDelta / systemDelta) * cpuCount * 100.0).toFixed(2);
-  logContainerCpu(container, cpuPercent, options);
-  // get memory usage stats:
-  const memStats = stats.memory_stats;
-  const memPercent = ((memStats.usage / memStats.limit) * 100.0).toFixed(2);
-  logContainerMemory(container, memPercent, options);
+  addValue(cpuPercent, containers[container.id].cpuScores);
   // update the previous cpu/mem values:
   containers[container.id].previousCPU = cpuStats.cpu_usage.total_usage;
   containers[container.id].previousSystem = cpuStats.system_cpu_usage;
+
+  // get memory usage stats:
+  const memStats = stats.memory_stats;
+  const memPercent = ((memStats.usage / memStats.limit) * 100.0).toFixed(2);
+  addValue(memPercent, containers[container.id].memScores);
 };
 
+const printStats = (container, stats, options) => {
+  const cpuPercent = getAverage(containers[container.id].cpuScores);
+  logContainerCpu(container, cpuPercent, options);
+  const memPercent = getAverage(containers[container.id].memScores);
+  logContainerMemory(container, memPercent, options);
+};
+
+
 // the main processing loop:
-const runInterval = async(docker, options) => {
+const runLog = async(docker, options) => {
   try {
     // list all running containers:
     const containerDescriptions = await docker.listContainers({ filters: { status: ['running'] } });
@@ -110,7 +140,9 @@ const runInterval = async(docker, options) => {
           previousCPU: 0,
           previousSystem: 0,
           cpuIntervals: 0,
-          memIntervals: 0
+          memIntervals: 0,
+          memScores: {},
+          cpuScores: {}
         };
       }
       if (!stats) {
@@ -124,9 +156,61 @@ const runInterval = async(docker, options) => {
   } finally {
     // wait for x seconds and then do it again:
     await wait(options.interval);
-    runInterval(docker, options);
+    runLog(docker, options);
   }
 };
+
+// queries the api at regular intervals:
+const runMonitor = async(docker, options) => {
+  try {
+    // list all running containers:
+    const containerDescriptions = await docker.listContainers({ filters: { status: ['running'] } });
+    // get and print stats for each running container:
+    // todo: should this be a Promise.all()?
+    containerDescriptions.forEach(async containerDescription => {
+      const container = docker.getContainer(containerDescription.Id);
+      container.name = (containerDescription.Names && containerDescription.Names.length > 0) ? containerDescription.Names[0] : `${containerDescription.Id} (name unknown)`;
+      if (container.name.startsWith('/')) {
+        container.name = container.name.replace('/', '');
+      }
+      if (options.exclude) {
+        if (RegExp(options.exclude).test(container.name)) {
+          return;
+        }
+      }
+      const stats = await container.stats({ stream: false });
+      // initialize some data for the container the first time we see it:
+      if (!containers[container.id]) {
+        containers[container.id] = {
+          previousCPU: 0,
+          previousSystem: 0,
+          cpuIntervals: 0,
+          memIntervals: 0,
+          // maintain list of { timestamp: value };
+          cpuScores: {},
+          memScores: {}
+        };
+      }
+      if (!stats) {
+        return log(['docker-ops', 'warning'], `Failed to get stats for container ${container.name}`);
+      }
+      updateStats(container, stats, options);
+    });
+  } catch (e) {
+    // if there was an error at any point, log it:
+    log(e);
+  } finally {
+    // can start logging once we're ready:
+    if (!started) {
+      started = true;
+      runLog(docker, options);
+    }
+    // wait for 2 seconds and then do it again:
+    await wait(2);
+    runMonitor(docker, options);
+  }
+};
+
 module.exports.start = (options) => {
   if (options.slackHook) {
     reporters.slack = {
@@ -150,5 +234,5 @@ module.exports.start = (options) => {
   log([hostname, 'docker-ops', 'info'], `Interval length: ${options.interval}, CPU threshold: ${options.cpuThreshold}% Memory threshold: ${options.memThreshold}%. Containers can be above threshold for ${options.intervalsAllowed} intervals`);
   // only need to create the dockerode object once:
   const docker = new Docker();
-  runInterval(docker, options);
+  runMonitor(docker, options);
 };
