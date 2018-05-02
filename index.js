@@ -48,19 +48,15 @@ const logContainerCpu = (container, value, options) => {
   if (options.verbose) {
     log([container.name, hostname, 'cpu', 'info'], `Using ${value}% CPU capacity`);
   }
-  // we always notify if a container has exceeded its threshold for too many intervals
-  // or when it goes back below that threshold
   const containerInfo = containers[container.id];
   if (value < options.cpuThreshold) {
-    if (containerInfo.cpuIntervals > options.intervalsAllowed) {
+    if (containerInfo.cpuIntervals > 0) {
       log([container.name, hostname, 'cpu', 'restored', 'threshold'], `CPU has dropped below critical threshold and is now at ${value}%`);
     }
     containerInfo.cpuIntervals = 0;
   } else {
     containerInfo.cpuIntervals ++;
-    if (containerInfo.cpuIntervals > options.intervalsAllowed) {
-      log([container.name, hostname, 'cpu', 'warning', 'threshold'], `CPU usage has been at ${value}% for ${containerInfo.cpuIntervals * options.interval} seconds`);
-    }
+    log([container.name, hostname, 'cpu', 'warning', 'threshold'], `CPU usage has been at ${value}% for ${containerInfo.cpuIntervals * options.interval} seconds`);
   }
 };
 
@@ -73,15 +69,13 @@ const logContainerMemory = (container, value, options) => {
   // or when it goes back below that threshold
   const containerInfo = containers[container.id];
   if (value < options.memThreshold) {
-    if (containerInfo.memIntervals > options.intervalsAllowed) {
+    if (containerInfo.memIntervals > 0) {
       log([container.name, hostname, 'memory', 'restored', 'threshold'], `Memory has dropped below critical threshold and is now at ${value}%`);
     }
     containerInfo.memIntervals = 0;
   } else {
     containerInfo.memIntervals ++;
-    if (containerInfo.memIntervals > options.intervalsAllowed) {
-      log([container.name, hostname, 'memory', 'warning', 'threshold'], `Memory usage has been at ${value}% for ${containerInfo.memIntervals * options.interval} seconds`);
-    }
+    log([container.name, hostname, 'memory', 'warning', 'threshold'], `Memory usage has been at ${value}% for ${containerInfo.memIntervals * options.interval} seconds`);
   }
 };
 
@@ -107,7 +101,7 @@ const printStats = (container, stats, options) => {
   logContainerCpu(container, cpuPercent, options);
   // get memory usage stats:
   const memStats = stats.memory_stats;
-  const memPercent = ((memStats.usage / memStats.limit) * 100.0).toFixed(2);
+  const memPercent = memStats.limit ? ((memStats.usage / memStats.limit) * 100.0).toFixed(2) : 0.00;
   logContainerMemory(container, memPercent, options);
 };
 
@@ -226,7 +220,7 @@ module.exports.start = (options) => {
     };
   }
   log = Logr.createLogger({ reporters });
-  log([hostname, 'docker-ops', 'info'], `Interval length: ${options.interval}, CPU threshold: ${options.cpuThreshold}% Memory threshold: ${options.memThreshold}%. Containers can be above threshold for ${options.intervalsAllowed} intervals`);
+  log([hostname, 'docker-ops', 'info'], `Interval length: ${options.interval}, CPU threshold: ${options.cpuThreshold}% Memory threshold: ${options.memThreshold}%.`);
   // only need to create the dockerode object once:
   const docker = new Docker();
   runMonitor(docker, options);
