@@ -49,6 +49,10 @@ const logContainerCpu = (container, value, options) => {
     log([container.name, hostname, 'cpu', 'info'], `Using ${value}% CPU capacity`);
   }
   const containerInfo = containers[container.id];
+  // don't start issuing cpu warnings until we have 1 minute of data:
+  if (new Date().getTime() < started + 60000) {
+    return;
+  }
   if (value < options.cpuThreshold) {
     if (containerInfo.cpuIntervals > 0) {
       log([container.name, hostname, 'cpu', 'restored', 'threshold'], `CPU has dropped below critical threshold and is now at ${value}%`);
@@ -191,7 +195,7 @@ const runMonitor = async(docker, options) => {
   } finally {
     // can start logging once we're ready:
     if (!started) {
-      started = true;
+      started = new Date().getTime();
       runLog(docker, options);
     }
     // wait for 2 seconds and then do it again:
