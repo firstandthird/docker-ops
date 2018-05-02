@@ -100,17 +100,14 @@ const updateStats = (container, stats, options) => {
   // update the previous cpu/mem values:
   containers[container.id].previousCPU = cpuStats.cpu_usage.total_usage;
   containers[container.id].previousSystem = cpuStats.system_cpu_usage;
-
-  // get memory usage stats:
-  const memStats = stats.memory_stats;
-  const memPercent = ((memStats.usage / memStats.limit) * 100.0).toFixed(2);
-  addValue(memPercent, containers[container.id].memScores);
 };
 
 const printStats = (container, stats, options) => {
   const cpuPercent = getAverage(containers[container.id].cpuScores);
   logContainerCpu(container, cpuPercent, options);
-  const memPercent = getAverage(containers[container.id].memScores);
+  // get memory usage stats:
+  const memStats = stats.memory_stats;
+  const memPercent = ((memStats.usage / memStats.limit) * 100.0).toFixed(2);
   logContainerMemory(container, memPercent, options);
 };
 
@@ -141,7 +138,6 @@ const runLog = async(docker, options) => {
           previousSystem: 0,
           cpuIntervals: 0,
           memIntervals: 0,
-          memScores: {},
           cpuScores: {}
         };
       }
@@ -188,7 +184,6 @@ const runMonitor = async(docker, options) => {
           memIntervals: 0,
           // maintain list of { timestamp: value };
           cpuScores: {},
-          memScores: {}
         };
       }
       if (!stats) {
